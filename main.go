@@ -62,10 +62,17 @@ func FormatMessage(message twitch.PrivateMessage) string {
 		Foreground(lipgloss.Color(message.User.Color))
 
 		// TODO: Expand message style
-	messageStyle := lipgloss.NewStyle().
+	contentStyle := lipgloss.NewStyle().
 		Bold(false)
 
-	return userStyle.Render(message.User.Name) + ": " + messageStyle.Render(message.Message)
+	// Full message style, add pink background in case first time chatter
+	fullStyle := lipgloss.NewStyle()
+
+	if message.FirstMessage {
+		fullStyle.Background(lipgloss.Color("201"))
+	}
+
+	return fullStyle.Render(userStyle.Render(message.User.Name) + ": " + contentStyle.Render(message.Message))
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
