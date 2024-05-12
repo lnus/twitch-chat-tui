@@ -9,17 +9,12 @@ import (
 	"github.com/gempir/go-twitch-irc/v4"
 )
 
-// twitchMsg is a message type to signal that a new message has been received from Twitch.
-type twitchMsg struct {
-	message twitch.PrivateMessage
-}
-
 // listenForActivity starts a goroutine to connect to Twitch and listen for messages.
-func listenForActivity(sub chan twitchMsg, client *twitch.Client) tea.Cmd {
+func listenForActivity(sub chan twitch.PrivateMessage, client *twitch.Client) tea.Cmd {
 	return func() tea.Msg {
 		go func() {
 			client.OnPrivateMessage(func(message twitch.PrivateMessage) {
-				sub <- twitchMsg{message: message}
+				sub <- message
 			})
 			err := client.Connect()
 			if err != nil {
@@ -31,14 +26,14 @@ func listenForActivity(sub chan twitchMsg, client *twitch.Client) tea.Cmd {
 	}
 }
 
-func waitForActivity(sub chan twitchMsg) tea.Cmd {
+func waitForActivity(sub chan twitch.PrivateMessage) tea.Cmd {
 	return func() tea.Msg {
 		return <-sub
 	}
 }
 
 type model struct {
-	sub      chan twitchMsg
+	sub      chan twitch.PrivateMessage
 	client   *twitch.Client
 	messages []string
 	quitting bool
@@ -55,12 +50,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		m.quitting = true
-		// TODO: This throws an error atm, not sexy
+		// TODO: Add later, right now bad UX because it throws error
 		// m.client.Disconnect()
 		return m, tea.Quit
-	case twitchMsg:
-		m.messages = append(m.messages, msg.message.User.Name+": "+msg.message.Message) // Append new message
-		if len(m.messages) > 10 {                                                       // Keep only the last 10 messages for display
+	case twitch.PrivateMessage:
+		m.messages = append(m.messages, msg.User.Name+": "+msg.Message) // Append new message
+		if len(m.messages) > 10 {                                       // Keep only the last 10 messages for display
 			m.messages = m.messages[1:]
 		}
 		return m, waitForActivity(m.sub) // Continue waiting for the next message
@@ -87,7 +82,7 @@ func main() {
 	client := twitch.NewAnonymousClient()
 
 	p := tea.NewProgram(model{
-		sub:    make(chan twitchMsg),
+		sub:    make(chan twitch.PrivateMessage),
 		client: client,
 	})
 
