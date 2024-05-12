@@ -9,19 +9,22 @@ import (
 	"github.com/gempir/go-twitch-irc/v4"
 )
 
-// listenForActivity starts a goroutine to connect to Twitch and listen for messages.
+// This is the example I based this on
+// https://github.com/charmbracelet/bubbletea/tree/master/examples/realtime
+
+// Start async to listen for new messages, async because of tea.Cmd.
+// Not fully 100% on how this works yet... hehe
 func listenForActivity(sub chan twitch.PrivateMessage, client *twitch.Client) tea.Cmd {
 	return func() tea.Msg {
-		go func() {
-			client.OnPrivateMessage(func(message twitch.PrivateMessage) {
-				sub <- message
-			})
-			err := client.Connect()
-			if err != nil {
-				fmt.Println("Failed to connect to Twitch:", err)
-				os.Exit(1)
-			}
-		}()
+		// TODO: This could probably be defined elsewhere /shrug
+		client.OnPrivateMessage(func(message twitch.PrivateMessage) {
+			sub <- message
+		})
+
+		err := client.Connect()
+		if err != nil {
+			panic(err)
+		}
 		return nil
 	}
 }
@@ -35,10 +38,12 @@ func waitForActivity(sub chan twitch.PrivateMessage) tea.Cmd {
 type model struct {
 	sub      chan twitch.PrivateMessage
 	client   *twitch.Client
+	channel  string
 	messages []string
 }
 
 func (m model) Init() tea.Cmd {
+	m.client.Join(m.channel)
 	return tea.Batch(
 		listenForActivity(m.sub, m.client), // Start listening to Twitch chat
 		waitForActivity(m.sub),             // Start waiting for the first message
@@ -48,12 +53,10 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// TODO: Add later, right now bad UX because it throws error
-		// m.client.Disconnect()
 		return m, tea.Quit
 	case twitch.PrivateMessage:
-		m.messages = append(m.messages, msg.User.Name+": "+msg.Message) // Append new message
-		if len(m.messages) > 10 {                                       // Keep only the last 10 messages for display
+		m.messages = append(m.messages, msg.User.Name+": "+msg.Message) // Append the message
+		if len(m.messages) > 20 {                                       // Limit how many messages are displayed
 			m.messages = m.messages[1:]
 		}
 		return m, waitForActivity(m.sub) // Continue waiting for the next message
@@ -63,7 +66,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	s := "\nRecent Twitch chat messages:\n\n"
+	s := "\nIn chat " + m.channel + ":\n\n"
 	if len(m.messages) > 0 {
 		s += strings.Join(m.messages, "\n")
 	} else {
@@ -77,12 +80,12 @@ func main() {
 	client := twitch.NewAnonymousClient()
 
 	p := tea.NewProgram(model{
-		sub:    make(chan twitch.PrivateMessage),
-		client: client,
+		sub:     make(chan twitch.PrivateMessage),
+		client:  client,
+		channel: "tarik", // Placeholder
 	})
 
-	client.Join("tarik")
-
+	// Run the UI
 	if _, err := p.Run(); err != nil {
 		fmt.Println("could not start program:", err)
 		os.Exit(1)
