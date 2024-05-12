@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/gempir/go-twitch-irc/v4"
 )
 
@@ -54,13 +55,26 @@ func (m model) Init() tea.Cmd {
 	)
 }
 
+func FormatMessage(message twitch.PrivateMessage) string {
+	// Add lipgloss styling to make the username the users color
+	userStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(message.User.Color))
+
+		// TODO: Expand message style
+	messageStyle := lipgloss.NewStyle().
+		Bold(false)
+
+	return userStyle.Render(message.User.Name) + ": " + messageStyle.Render(message.Message)
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m, tea.Quit
 	case twitch.PrivateMessage:
-		m.messages = append(m.messages, msg.User.Name+": "+msg.Message) // Append the message
-		if len(m.messages) > 20 {                                       // Limit how many messages are displayed
+		m.messages = append(m.messages, FormatMessage(msg))
+		if len(m.messages) > 20 {
 			m.messages = m.messages[1:]
 		}
 		return m, waitForActivity(m.sub) // Continue waiting for the next message
