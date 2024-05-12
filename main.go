@@ -36,7 +36,6 @@ type model struct {
 	sub      chan twitch.PrivateMessage
 	client   *twitch.Client
 	messages []string
-	quitting bool
 }
 
 func (m model) Init() tea.Cmd {
@@ -49,7 +48,6 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		m.quitting = true
 		// TODO: Add later, right now bad UX because it throws error
 		// m.client.Disconnect()
 		return m, tea.Quit
@@ -72,9 +70,6 @@ func (m model) View() string {
 		s += "No messages yet."
 	}
 	s += "\n\nPress any key to exit\n"
-	if m.quitting {
-		s += "\n"
-	}
 	return s
 }
 
