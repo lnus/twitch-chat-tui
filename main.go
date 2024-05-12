@@ -106,12 +106,17 @@ func (m model) View() string {
 func main() {
 	client := twitch.NewAnonymousClient()
 
+	// Spinner setup
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
 	p := tea.NewProgram(model{
 		sub:     make(chan twitch.PrivateMessage),
 		client:  client,
-		spinner: spinner.New(),
+		spinner: s,
 		channel: "tarik", // Placeholder
-	})
+	}, tea.WithAltScreen())
 
 	// Run the UI
 	if _, err := p.Run(); err != nil {
