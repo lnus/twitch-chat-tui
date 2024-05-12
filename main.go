@@ -2,72 +2,99 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gempir/go-twitch-irc/v4"
 )
 
-type model struct {
-	messageChan chan string // Channel for incoming messages
-	messages    []string    // List of messages to display
+// twitchMsg is a message type to signal that a new message has been received from Twitch.
+type twitchMsg struct {
+	message twitch.PrivateMessage
 }
 
-func initialModel() model {
-	return model{
-		messages:    []string{},
-		messageChan: make(chan string, 100), // Buffer 100 messages
-	}
-}
-
-func listenTwitchMessages(messageChan chan string) tea.Cmd {
+// listenForActivity starts a goroutine to connect to Twitch and listen for messages.
+func listenForActivity(sub chan twitchMsg, client *twitch.Client) tea.Cmd {
 	return func() tea.Msg {
-		client := twitch.NewAnonymousClient()
-
-		client.OnPrivateMessage(func(message twitch.PrivateMessage) {
-			messageChan <- message.Message
-		})
-
-		client.Join("forsen") // Join placeholder channel
-
-		err := client.Connect()
-		if err != nil {
-			panic(err)
-		}
+		go func() {
+			client.OnPrivateMessage(func(message twitch.PrivateMessage) {
+				sub <- twitchMsg{message: message}
+			})
+			err := client.Connect()
+			if err != nil {
+				fmt.Println("Failed to connect to Twitch:", err)
+				os.Exit(1)
+			}
+		}()
 		return nil
 	}
 }
 
+func waitForActivity(sub chan twitchMsg) tea.Cmd {
+	return func() tea.Msg {
+		return <-sub
+	}
+}
+
+type model struct {
+	sub      chan twitchMsg
+	client   *twitch.Client
+	messages []string
+	quitting bool
+}
+
 func (m model) Init() tea.Cmd {
-	// Start listening for messages
-	return listenTwitchMessages(m.messageChan)
+	return tea.Batch(
+		listenForActivity(m.sub, m.client), // Start listening to Twitch chat
+		waitForActivity(m.sub),             // Start waiting for the first message
+	)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg: // Keypress event
-		if msg.String() == "q" {
-			return m, tea.Quit
+	case tea.KeyMsg:
+		m.quitting = true
+		// TODO: This throws an error atm, not sexy
+		// m.client.Disconnect()
+		return m, tea.Quit
+	case twitchMsg:
+		m.messages = append(m.messages, msg.message.User.Name+": "+msg.message.Message) // Append new message
+		if len(m.messages) > 10 {                                                       // Keep only the last 10 messages for display
+			m.messages = m.messages[1:]
 		}
-	case string: // Message from Twitch
-		m.messages = append(m.messages, msg)
+		return m, waitForActivity(m.sub) // Continue waiting for the next message
+	default:
 		return m, nil
 	}
-
-	return m, nil
 }
 
 func (m model) View() string {
-	view := "Twitch chat:\n"
-	for _, message := range m.messages {
-		view += message + "\n"
+	s := "\nRecent Twitch chat messages:\n\n"
+	if len(m.messages) > 0 {
+		s += strings.Join(m.messages, "\n")
+	} else {
+		s += "No messages yet."
 	}
-	view += "Press 'q' to quit"
-	return view
+	s += "\n\nPress any key to exit\n"
+	if m.quitting {
+		s += "\n"
+	}
+	return s
 }
 
 func main() {
-	p := tea.NewProgram(initialModel())
+	client := twitch.NewAnonymousClient()
+
+	p := tea.NewProgram(model{
+		sub:    make(chan twitchMsg),
+		client: client,
+	})
+
+	client.Join("tarik")
+
 	if _, err := p.Run(); err != nil {
-		fmt.Println("Error starting program:", err)
+		fmt.Println("could not start program:", err)
+		os.Exit(1)
 	}
 }
