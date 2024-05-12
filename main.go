@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gempir/go-twitch-irc/v4"
 )
@@ -40,11 +41,14 @@ type model struct {
 	client   *twitch.Client
 	channel  string
 	messages []string
+	spinner  spinner.Model
 }
 
 func (m model) Init() tea.Cmd {
-	m.client.Join(m.channel)
+	m.client.Join(m.channel) // Join the channel first
+
 	return tea.Batch(
+		m.spinner.Tick,                     // Start ticking the spinner
 		listenForActivity(m.sub, m.client), // Start listening to Twitch chat
 		waitForActivity(m.sub),             // Start waiting for the first message
 	)
@@ -61,7 +65,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, waitForActivity(m.sub) // Continue waiting for the next message
 	default:
-		return m, nil
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 	}
 }
 
@@ -70,7 +76,7 @@ func (m model) View() string {
 	if len(m.messages) > 0 {
 		s += strings.Join(m.messages, "\n")
 	} else {
-		s += "No messages yet."
+		s += fmt.Sprintf("%s No messages yet.", m.spinner.View())
 	}
 	s += "\n\nPress any key to exit\n"
 	return s
@@ -82,6 +88,7 @@ func main() {
 	p := tea.NewProgram(model{
 		sub:     make(chan twitch.PrivateMessage),
 		client:  client,
+		spinner: spinner.New(),
 		channel: "tarik", // Placeholder
 	})
 
