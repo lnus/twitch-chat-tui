@@ -13,7 +13,7 @@ type ChatModel struct {
 	sub      chan twitch.PrivateMessage
 	client   *twitch.Client
 	channel  string
-	messages []string // TODO: Maybe limit the size of this lol
+	messages []string
 	spinner  spinner.Model
 }
 
@@ -63,23 +63,25 @@ func (m ChatModel) Init() tea.Cmd {
 }
 
 func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m, tea.Quit
 	case twitch.PrivateMessage:
 		// FIXME: Hacky fix to only show messages from the current channel
 		// Having race conditions here
-		if !m.currentChannel(msg.Channel) {
-			return m, waitForActivity(m.sub)
+		if m.currentChannel(msg.Channel) {
+			m.messages = append(m.messages, FormatMessage(msg))
 		}
-
-		m.messages = append(m.messages, FormatMessage(msg))
-		return m, waitForActivity(m.sub)
+		cmds = append(cmds, waitForActivity(m.sub))
 	default:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
-		return m, cmd
+		cmds = append(cmds, cmd)
 	}
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m ChatModel) View() string {

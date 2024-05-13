@@ -80,6 +80,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+
 	case tea.KeyMsg:
 		if m.isTyping {
 			// Handle text input updates
