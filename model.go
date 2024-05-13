@@ -1,13 +1,42 @@
 package main
 
 import (
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gempir/go-twitch-irc/v4"
 )
 
+// Keybinding stuff
+// TODO: Move to a separate file
+type keyMap struct {
+	Append key.Binding
+	Quit   key.Binding
+}
+
+func (k keyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		k.Append,
+		k.Quit,
+	}
+}
+
+var keys = keyMap{
+	Append: key.NewBinding(
+		key.WithKeys("a"),
+		key.WithHelp("a", "append a new chat"),
+	),
+	Quit: key.NewBinding(
+		key.WithKeys("q", "ctrl+c"),
+		key.WithHelp("q", "quit"),
+	),
+}
+
 type MainModel struct {
 	chatModels map[string]ChatModel
+	help       help.Model
+	keys       keyMap
 	activeChat string
 	textInput  textinput.Model
 	isTyping   bool
@@ -20,10 +49,12 @@ func NewMainModel() MainModel {
 	ti.Width = 20
 
 	return MainModel{
-		chatModels: make(map[string]ChatModel),
-		activeChat: "",
-		textInput:  ti,
-		isTyping:   false,
+		keys:       keys,                       // Keybindings
+		help:       help.New(),                 // Help menu model
+		chatModels: make(map[string]ChatModel), // Chat models
+		activeChat: "",                         // Active chat, default to none
+		textInput:  ti,                         // Text input model
+		isTyping:   false,                      // Typing mode
 	}
 }
 
@@ -88,6 +119,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m MainModel) View() string {
 	var s string
+	helpView := m.help.ShortHelpView(m.keys.ShortHelp())
 
 	if len(m.chatModels) == 0 && !m.isTyping {
 		s += "No chats yet. Press 'a' to start typing."
@@ -100,6 +132,9 @@ func (m MainModel) View() string {
 	if len(m.chatModels) > 0 {
 		s += m.chatModels[m.activeChat].View()
 	}
+
+	// Mini help display
+	s += "\n\n" + helpView
 
 	return s
 }
