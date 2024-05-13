@@ -9,6 +9,7 @@ import (
 type MainModel struct {
 	chatModels []ChatModel
 	textInput  textinput.Model
+	activeChat int
 	isTyping   bool
 }
 
@@ -30,6 +31,8 @@ func (m MainModel) Init() tea.Cmd {
 }
 
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -48,9 +51,20 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				m.chatModels = append(m.chatModels, chatModel)
 
-				return chatModel, chatModel.Init()
+				// Set that chat as the active chat
+				// This is a bit of a hack, but it works for now
+				m.activeChat = len(m.chatModels) - 1
+
+				return m, m.chatModels[m.activeChat].Init()
 			}
 		}
+	}
+
+	// Propogate update to activeChat
+	if len(m.chatModels) > 0 {
+		updatedModel, cmd := m.chatModels[m.activeChat].Update(msg)
+		m.chatModels[m.activeChat] = updatedModel.(ChatModel)
+		cmds = append(cmds, cmd)
 	}
 
 	// Might be a silly way to do this, but we're doing our best
@@ -60,13 +74,17 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
-	return m, nil
+	return m, tea.Batch(cmds...)
 }
 
 func (m MainModel) View() string {
-	s := "Press 'a' to start typing"
-	if m.isTyping {
-		s = m.textInput.View()
+	if len(m.chatModels) == 0 && !m.isTyping {
+		return "No chats yet. Press 'a' to start typing."
 	}
-	return s
+
+	if m.isTyping {
+		return m.textInput.View()
+	}
+
+	return m.chatModels[m.activeChat].View()
 }

@@ -29,9 +29,9 @@ func NewChatModel(client *twitch.Client, spinner spinner.Model, channel string) 
 func (m ChatModel) Init() tea.Cmd {
 	m.client.Join(m.channel) // Join the channel first
 	return tea.Batch(
-		m.spinner.Tick,
-		listenForActivity(m.sub, m.client),
-		waitForActivity(m.sub),
+		m.spinner.Tick,                     // Start the spinner
+		listenForActivity(m.sub, m.client), // Start accepting messages
+		waitForActivity(m.sub),             // Wait to read the messages
 	)
 }
 
@@ -59,6 +59,5 @@ func (m ChatModel) View() string {
 	} else {
 		s += fmt.Sprintf("%s No messages yet.", m.spinner.View())
 	}
-	s += "\n\nPress any key to exit\n"
 	return s
 }
