@@ -1,7 +1,7 @@
 package tui
 
 import (
-	// import from local package chat/model
+	"strings"
 	"ttui/chat"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -11,12 +11,13 @@ import (
 )
 
 type MainModel struct {
-	chatModels map[string]chat.ChatModel
-	help       help.Model
-	keys       KeyMap
-	activeChat string
-	textInput  textinput.Model
-	isTyping   bool
+	chatModels map[string]chat.ChatModel // Chat models (see chat/model.go)
+	tabs       []string                  // Tab representation of chat models
+	help       help.Model                // Help menu model
+	keys       KeyMap                    // Keybindings (see keys.go)
+	activeChat string                    // Active chat / tab
+	textInput  textinput.Model           // Text input model
+	isTyping   bool                      // Typing mode
 }
 
 func NewMainModel() MainModel {
@@ -24,6 +25,7 @@ func NewMainModel() MainModel {
 		keys:       Keys,                            // Keybindings
 		help:       help.New(),                      // Help menu model
 		chatModels: make(map[string]chat.ChatModel), // Chat models
+		tabs:       make([]string, 0),               // Tab representation of chat models
 		activeChat: "",                              // Active chat, default to none
 		textInput:  NewTextInput(),                  // Text input model
 		isTyping:   false,                           // Typing mode
@@ -39,7 +41,26 @@ func (m MainModel) channelExists(channel string) bool {
 	return exists
 }
 
+func (m *MainModel) addChannel(channel string) tea.Cmd {
+	// Sanity check, just set active
+	if m.channelExists(channel) {
+		m.activeChat = channel
+		return nil
+	}
+
+	// Create a new ChatModel with the username
+	chatModel := chat.NewChatModel(twitch.NewAnonymousClient(), NewStyledSpinner(), channel)
+	m.chatModels[channel] = chatModel
+	m.activeChat = channel
+
+	// Add this channel name to last of tab-list
+	m.tabs = append(m.tabs, channel)
+
+	return chatModel.Init()
+}
+
 // TODO: Abstract some of this logic
+// Probably into receiver methods for MainModel
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
@@ -57,16 +78,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.isTyping = false
 				username := m.textInput.Value()
 
-				// If channel already exists, just swap to that model
-				if m.channelExists(username) {
-					m.activeChat = username
-				} else {
-					// Create a new ChatModel with the username
-					chatModel := chat.NewChatModel(twitch.NewAnonymousClient(), NewStyledSpinner(), username)
-					m.chatModels[username] = chatModel
-					m.activeChat = username
-					cmds = append(cmds, chatModel.Init())
-				}
+				cmd = m.addChannel(username)
+				cmds = append(cmds, cmd)
 			}
 		} else {
 			// Handle non-input key presses
@@ -91,23 +104,28 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m MainModel) View() string {
-	var s string
+	view := strings.Builder{}
 	helpView := m.help.ShortHelpView(m.keys.ShortHelp())
 
+	// Iterate over chat models to make tabs
+	row := renderTabString(m.tabs, m.activeChat)
+	view.WriteString(row)
+	view.WriteString("\n")
+	if len(m.chatModels) > 0 {
+		view.WriteString(windowStyle.Render(m.chatModels[m.activeChat].View()))
+	}
+
 	if len(m.chatModels) == 0 && !m.isTyping {
-		s += "No chats yet. Press 'a' to start typing."
+		view.WriteString("No chats yet. Press 'a' to start typing.")
 	}
 
 	if m.isTyping {
-		s += m.textInput.View()
-	}
-
-	if len(m.chatModels) > 0 {
-		s += m.chatModels[m.activeChat].View()
+		view.WriteString("\n\n" + m.textInput.View())
 	}
 
 	// Mini help display
-	s += "\n\n" + helpView
+	view.WriteString("\n\n" + helpView)
 
-	return s
+	// Rename docStyle
+	return docStyle.Render(view.String())
 }
