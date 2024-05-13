@@ -12,7 +12,7 @@ import (
 
 func main() {
 	client := twitch.NewAnonymousClient()
-	channel := "forsen" // TODO: Make dynamic per tab
+	channel := "loltyler1" // TODO: Make dynamic per tab
 	chatModelOnly := false
 
 	var p *tea.Program

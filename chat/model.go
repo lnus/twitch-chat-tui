@@ -26,6 +26,9 @@ func NewChatModel(client *twitch.Client, spinner spinner.Model, channel string) 
 	}
 }
 
+// TODO: Read up on this
+// Still not 100% sure how this works
+// Feels like bubbletea magic
 func listenForActivity(sub chan twitch.PrivateMessage, client *twitch.Client) tea.Cmd {
 	return func() tea.Msg {
 		client.OnPrivateMessage(func(message twitch.PrivateMessage) {
@@ -46,6 +49,10 @@ func waitForActivity(sub chan twitch.PrivateMessage) tea.Cmd {
 	}
 }
 
+func (m ChatModel) currentChannel(channel string) bool {
+	return strings.EqualFold(m.channel, channel)
+}
+
 func (m ChatModel) Init() tea.Cmd {
 	m.client.Join(m.channel) // Join the channel first
 	return tea.Batch(
@@ -60,6 +67,12 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m, tea.Quit
 	case twitch.PrivateMessage:
+		// FIXME: Hacky fix to only show messages from the current channel
+		// Having race conditions here
+		if !m.currentChannel(msg.Channel) {
+			return m, waitForActivity(m.sub)
+		}
+
 		m.messages = append(m.messages, FormatMessage(msg))
 		return m, waitForActivity(m.sub)
 	default:

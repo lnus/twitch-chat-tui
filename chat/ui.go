@@ -21,5 +21,5 @@ func FormatMessage(message twitch.PrivateMessage) string {
 		fullStyle.Background(lipgloss.Color("201"))
 	}
 
-	return fullStyle.Render(userStyle.Render(message.User.Name) + ": " + contentStyle.Render(message.Message))
+	return fullStyle.Render("@" + message.Channel + "> " + userStyle.Render(message.User.Name) + ": " + contentStyle.Render(message.Message))
 }
