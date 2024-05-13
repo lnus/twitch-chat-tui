@@ -11,13 +11,15 @@ import (
 )
 
 type MainModel struct {
-	chatModels map[string]chat.ChatModel // Chat models (see chat/model.go)
-	tabs       []string                  // Tab representation of chat models
-	help       help.Model                // Help menu model
-	keys       KeyMap                    // Keybindings (see keys.go)
-	activeChat string                    // Active chat / tab
-	textInput  textinput.Model           // Text input model
-	isTyping   bool                      // Typing mode
+	chatModels map[string]chat.ChatModel
+	help       help.Model
+	activeChat string
+	keys       KeyMap
+	tabs       []string
+	textInput  textinput.Model
+	width      int
+	height     int
+	isTyping   bool
 }
 
 func NewMainModel() MainModel {
@@ -65,6 +67,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
 	case tea.KeyMsg:
 		if m.isTyping {
 			// Handle text input updates
@@ -107,12 +112,14 @@ func (m MainModel) View() string {
 	view := strings.Builder{}
 	helpView := m.help.ShortHelpView(m.keys.ShortHelp())
 
-	// Iterate over chat models to make tabs
-	row := renderTabString(m.tabs, m.activeChat)
-	view.WriteString(row)
-	view.WriteString("\n")
 	if len(m.chatModels) > 0 {
-		view.WriteString(windowStyle.Render(m.chatModels[m.activeChat].View()))
+		// Iterate over chat models to make tabs
+		row := renderTabString(m.tabs, m.activeChat)
+		view.WriteString(row)
+		view.WriteString("\n")
+
+		// And render content within tab
+		view.WriteString(windowStyle.Width(m.width).Render(m.chatModels[m.activeChat].View()))
 	}
 
 	if len(m.chatModels) == 0 && !m.isTyping {
@@ -126,6 +133,6 @@ func (m MainModel) View() string {
 	// Mini help display
 	view.WriteString("\n\n" + helpView)
 
-	// Rename docStyle
+	// TODO: Rename docStyle
 	return docStyle.Render(view.String())
 }

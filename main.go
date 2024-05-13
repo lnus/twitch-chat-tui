@@ -20,7 +20,7 @@ func main() {
 	if chatModelOnly {
 		p = tea.NewProgram(chat.NewChatModel(client, tui.NewStyledSpinner(), channel), tea.WithAltScreen())
 	} else {
-		p = tea.NewProgram(tui.NewMainModel())
+		p = tea.NewProgram(tui.NewMainModel(), tea.WithAltScreen())
 	}
 
 	// Run the UI
