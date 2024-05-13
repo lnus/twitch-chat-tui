@@ -70,7 +70,7 @@ func (m *MainModel) addChannel(channel string) tea.Cmd {
 	}
 
 	// Create a new ChatModel with the username
-	chatModel := chat.NewChatModel(twitch.NewAnonymousClient(), NewStyledSpinner(), channel, m.height, m.width)
+	chatModel := chat.NewChatModel(twitch.NewAnonymousClient(), NewStyledSpinner(), channel)
 	m.chatModels[channel] = chatModel
 	m.activeChat = channel
 

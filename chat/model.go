@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gempir/go-twitch-irc/v4"
 )
@@ -15,17 +14,15 @@ type ChatModel struct {
 	client   *twitch.Client
 	Channel  string
 	messages []string
-	viewport viewport.Model
 	spinner  spinner.Model
 }
 
-func NewChatModel(client *twitch.Client, spinner spinner.Model, channel string, height int, width int) ChatModel {
+func NewChatModel(client *twitch.Client, spinner spinner.Model, channel string) ChatModel {
 	return ChatModel{
-		sub:      make(chan twitch.PrivateMessage),
-		viewport: viewport.New(60, 60), // TODO: Don't hardcode this
-		client:   client,
-		spinner:  spinner,
-		Channel:  channel,
+		sub:     make(chan twitch.PrivateMessage),
+		client:  client,
+		spinner: spinner,
+		Channel: channel,
 	}
 }
 
@@ -90,13 +87,17 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m ChatModel) View() string {
 	view := strings.Builder{}
 	if len(m.messages) > 0 {
-		// FIXME: This breaks on too many messages
-		// Need to implement a scrollable view
-		view.WriteString(strings.Join(m.messages, "\n"))
+		// Only display the latest 30 messages, but dont remove them from the slice
+		// This will allow us to scroll up and down ? Maybe
+		// This is a hacky fix
+		if len(m.messages) > 30 {
+			view.WriteString(strings.Join(m.messages[len(m.messages)-30:], "\n"))
+		} else {
+			view.WriteString(strings.Join(m.messages, "\n"))
+		}
 	} else {
 		view.WriteString(fmt.Sprintf("%s No messages yet.", m.spinner.View()))
 	}
 
-	m.viewport.SetContent(view.String())
-	return m.viewport.View()
+	return view.String()
 }
