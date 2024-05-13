@@ -13,7 +13,7 @@ type ChatModel struct {
 	sub      chan twitch.PrivateMessage
 	client   *twitch.Client
 	channel  string
-	messages []string
+	messages []string // TODO: Maybe limit the size of this lol
 	spinner  spinner.Model
 }
 
@@ -41,9 +41,6 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case twitch.PrivateMessage:
 		m.messages = append(m.messages, FormatMessage(msg))
-		if len(m.messages) > 20 {
-			m.messages = m.messages[1:]
-		}
 		return m, waitForActivity(m.sub)
 	default:
 		var cmd tea.Cmd
@@ -55,6 +52,7 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m ChatModel) View() string {
 	view := strings.Builder{}
 	if len(m.messages) > 0 {
+		// FIXME: This breaks on too many messages
 		view.WriteString(strings.Join(m.messages, "\n"))
 	} else {
 		view.WriteString(fmt.Sprintf("%s No messages yet.", m.spinner.View()))

@@ -43,6 +43,15 @@ func (m MainModel) channelExists(channel string) bool {
 	return exists
 }
 
+func (m MainModel) channelIndex() int {
+	for i, tab := range m.tabs {
+		if tab == m.activeChat {
+			return i
+		}
+	}
+	return -1
+}
+
 func (m *MainModel) addChannel(channel string) tea.Cmd {
 	// Sanity check, just set active
 	if m.channelExists(channel) {
@@ -65,6 +74,7 @@ func (m *MainModel) addChannel(channel string) tea.Cmd {
 // Probably into receiver methods for MainModel
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
+	index := m.channelIndex()
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -95,9 +105,30 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// TextInput pop up
 				m.isTyping = true
 				cmds = append(cmds, m.textInput.Focus())
+
+				// Tab switching
+			case "left", "h": // Left arrow or h
+				if index != -1 {
+					// Go left and wrap around
+					if index == 0 {
+						m.activeChat = m.tabs[len(m.tabs)-1]
+					} else {
+						m.activeChat = m.tabs[index-1]
+					}
+				}
+			case "right", "l": // Right arrow or l
+				if index != -1 {
+					// Go right and wrap around
+					if index == len(m.tabs)-1 {
+						m.activeChat = m.tabs[0]
+					} else {
+						m.activeChat = m.tabs[index+1]
+					}
+				}
 			}
 		}
 	default:
+		// TODO: Update all chats, not only active
 		if m.channelExists(m.activeChat) {
 			updatedModel, cmd := m.chatModels[m.activeChat].Update(msg)
 			m.chatModels[m.activeChat] = updatedModel.(chat.ChatModel)
@@ -135,6 +166,9 @@ func (m MainModel) View() string {
 
 	// Mini help display
 	view.WriteString("\n\n" + helpView)
+
+	// Dumb thing debug
+	view.WriteString(m.activeChat)
 
 	// TODO: Rename docStyle
 	return docStyle.Render(view.String())
