@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/gempir/go-twitch-irc/v4"
 )
@@ -20,4 +21,11 @@ func FormatMessage(message twitch.PrivateMessage) string {
 	}
 
 	return fullStyle.Render(userStyle.Render(message.User.Name) + ": " + contentStyle.Render(message.Message))
+}
+
+func NewStyledSpinner() spinner.Model {
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	return s
 }

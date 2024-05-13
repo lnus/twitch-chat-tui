@@ -1,10 +1,10 @@
 .PHONY: build run clean
 
 build:
-	go build -o myapp
+	go build -o ttui
 
 run: build
-	./myapp
+	./ttui
 
 clean:
 	rm -f myapp
