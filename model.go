@@ -1,9 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gempir/go-twitch-irc/v4"
@@ -52,13 +49,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
+// Handled in ui.go
 func (m model) View() string {
-	s := "\nIn chat " + m.channel + ":\n\n"
-	if len(m.messages) > 0 {
-		s += strings.Join(m.messages, "\n")
-	} else {
-		s += fmt.Sprintf("%s No messages yet.", m.spinner.View())
-	}
-	s += "\n\nPress any key to exit\n"
-	return s
+	return RenderView(m)
 }

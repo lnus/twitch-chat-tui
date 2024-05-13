@@ -10,8 +10,9 @@ import (
 
 func main() {
 	client := twitch.NewAnonymousClient()
+	channel := "forsen" // TODO: Make dynamic per tab
 
-	p := tea.NewProgram(initializeModel(client, NewStyledSpinner(), "forsen"), tea.WithAltScreen())
+	p := tea.NewProgram(initializeModel(client, NewStyledSpinner(), channel), tea.WithAltScreen())
 
 	// Run the UI
 	if _, err := p.Run(); err != nil {
