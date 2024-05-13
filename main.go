@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"ttui/chat"
+	"ttui/tui"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gempir/go-twitch-irc/v4"
@@ -16,9 +18,9 @@ func main() {
 	var p *tea.Program
 
 	if chatModelOnly {
-		p = tea.NewProgram(NewChatModel(client, NewStyledSpinner(), channel), tea.WithAltScreen())
+		p = tea.NewProgram(chat.NewChatModel(client, tui.NewStyledSpinner(), channel), tea.WithAltScreen())
 	} else {
-		p = tea.NewProgram(NewMainModel(), tea.WithAltScreen())
+		p = tea.NewProgram(tui.NewMainModel(), tea.WithAltScreen())
 	}
 
 	// Run the UI

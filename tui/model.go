@@ -1,6 +1,9 @@
-package main
+package tui
 
 import (
+	// import from local package chat/model
+	"ttui/chat"
+
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -34,7 +37,7 @@ var keys = keyMap{
 }
 
 type MainModel struct {
-	chatModels map[string]ChatModel
+	chatModels map[string]chat.ChatModel
 	help       help.Model
 	keys       keyMap
 	activeChat string
@@ -49,12 +52,12 @@ func NewMainModel() MainModel {
 	ti.Width = 20
 
 	return MainModel{
-		keys:       keys,                       // Keybindings
-		help:       help.New(),                 // Help menu model
-		chatModels: make(map[string]ChatModel), // Chat models
-		activeChat: "",                         // Active chat, default to none
-		textInput:  ti,                         // Text input model
-		isTyping:   false,                      // Typing mode
+		keys:       keys,                            // Keybindings
+		help:       help.New(),                      // Help menu model
+		chatModels: make(map[string]chat.ChatModel), // Chat models
+		activeChat: "",                              // Active chat, default to none
+		textInput:  ti,                              // Text input model
+		isTyping:   false,                           // Typing mode
 	}
 }
 
@@ -89,7 +92,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.activeChat = username
 				} else {
 					// Create a new ChatModel with the username
-					chatModel := NewChatModel(twitch.NewAnonymousClient(), NewStyledSpinner(), username)
+					chatModel := chat.NewChatModel(twitch.NewAnonymousClient(), NewStyledSpinner(), username)
 					m.chatModels[username] = chatModel
 					m.activeChat = username
 					cmds = append(cmds, chatModel.Init())
@@ -109,7 +112,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 		if m.channelExists(m.activeChat) {
 			updatedModel, cmd := m.chatModels[m.activeChat].Update(msg)
-			m.chatModels[m.activeChat] = updatedModel.(ChatModel)
+			m.chatModels[m.activeChat] = updatedModel.(chat.ChatModel)
 			cmds = append(cmds, cmd)
 		}
 	}
