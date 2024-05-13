@@ -11,8 +11,15 @@ import (
 func main() {
 	client := twitch.NewAnonymousClient()
 	channel := "forsen" // TODO: Make dynamic per tab
+	chatModelOnly := false
 
-	p := tea.NewProgram(initializeModel(client, NewStyledSpinner(), channel), tea.WithAltScreen())
+	var p *tea.Program
+
+	if chatModelOnly {
+		p = tea.NewProgram(NewChatModel(client, NewStyledSpinner(), channel), tea.WithAltScreen())
+	} else {
+		p = tea.NewProgram(NewMainModel(), tea.WithAltScreen())
+	}
 
 	// Run the UI
 	if _, err := p.Run(); err != nil {
