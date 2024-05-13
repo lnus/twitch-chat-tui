@@ -5,58 +5,27 @@ import (
 	"ttui/chat"
 
 	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gempir/go-twitch-irc/v4"
 )
 
-// Keybinding stuff
-// TODO: Move to a separate file
-type keyMap struct {
-	Append key.Binding
-	Quit   key.Binding
-}
-
-func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{
-		k.Append,
-		k.Quit,
-	}
-}
-
-var keys = keyMap{
-	Append: key.NewBinding(
-		key.WithKeys("a"),
-		key.WithHelp("a", "append a new chat"),
-	),
-	Quit: key.NewBinding(
-		key.WithKeys("q", "ctrl+c"),
-		key.WithHelp("q", "quit"),
-	),
-}
-
 type MainModel struct {
 	chatModels map[string]chat.ChatModel
 	help       help.Model
-	keys       keyMap
+	keys       KeyMap
 	activeChat string
 	textInput  textinput.Model
 	isTyping   bool
 }
 
 func NewMainModel() MainModel {
-	ti := textinput.New()
-	ti.Placeholder = "forsen"
-	ti.CharLimit = 25 // Twitch username limit
-	ti.Width = 20
-
 	return MainModel{
-		keys:       keys,                            // Keybindings
+		keys:       Keys,                            // Keybindings
 		help:       help.New(),                      // Help menu model
 		chatModels: make(map[string]chat.ChatModel), // Chat models
 		activeChat: "",                              // Active chat, default to none
-		textInput:  ti,                              // Text input model
+		textInput:  NewTextInput(),                  // Text input model
 		isTyping:   false,                           // Typing mode
 	}
 }
@@ -70,6 +39,7 @@ func (m MainModel) channelExists(channel string) bool {
 	return exists
 }
 
+// TODO: Abstract some of this logic
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
