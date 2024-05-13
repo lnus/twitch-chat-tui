@@ -52,6 +52,16 @@ func (m MainModel) channelIndex() int {
 	return -1
 }
 
+func (m MainModel) passUpdates(msg tea.Msg) []tea.Cmd {
+	var cmds []tea.Cmd
+	for _, chatModel := range m.chatModels {
+		updatedModel, cmd := chatModel.Update(msg)
+		m.chatModels[chatModel.Channel] = updatedModel.(chat.ChatModel)
+		cmds = append(cmds, cmd)
+	}
+	return cmds
+}
+
 func (m *MainModel) addChannel(channel string) tea.Cmd {
 	// Sanity check, just set active
 	if m.channelExists(channel) {
@@ -60,7 +70,7 @@ func (m *MainModel) addChannel(channel string) tea.Cmd {
 	}
 
 	// Create a new ChatModel with the username
-	chatModel := chat.NewChatModel(twitch.NewAnonymousClient(), NewStyledSpinner(), channel)
+	chatModel := chat.NewChatModel(twitch.NewAnonymousClient(), NewStyledSpinner(), channel, m.height, m.width)
 	m.chatModels[channel] = chatModel
 	m.activeChat = channel
 
@@ -80,6 +90,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+
+		// Update all chat models
+		cmds = append(cmds, m.passUpdates(msg)...)
 
 	case tea.KeyMsg:
 		if m.isTyping {
@@ -130,11 +143,13 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	default:
 		// FIXME: Update all chats, not only active
-		if m.channelExists(m.activeChat) {
-			updatedModel, cmd := m.chatModels[m.activeChat].Update(msg)
-			m.chatModels[m.activeChat] = updatedModel.(chat.ChatModel)
-			cmds = append(cmds, cmd)
-		}
+		// if m.channelExists(m.activeChat) {
+		// 	updatedModel, cmd := m.chatModels[m.activeChat].Update(msg)
+		// 	m.chatModels[m.activeChat] = updatedModel.(chat.ChatModel)
+		// 	cmds = append(cmds, cmd)
+		// }
+		// pass updates to all chat models
+		cmds = append(cmds, m.passUpdates(msg)...)
 
 		// Iterate over all chat models and update them
 		// For some reason this consolidates the messages

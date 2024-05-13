@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gempir/go-twitch-irc/v4"
 )
@@ -12,17 +13,19 @@ import (
 type ChatModel struct {
 	sub      chan twitch.PrivateMessage
 	client   *twitch.Client
-	channel  string
+	Channel  string
 	messages []string
+	viewport viewport.Model
 	spinner  spinner.Model
 }
 
-func NewChatModel(client *twitch.Client, spinner spinner.Model, channel string) ChatModel {
+func NewChatModel(client *twitch.Client, spinner spinner.Model, channel string, height int, width int) ChatModel {
 	return ChatModel{
-		sub:     make(chan twitch.PrivateMessage),
-		client:  client,
-		spinner: spinner,
-		channel: channel,
+		sub:      make(chan twitch.PrivateMessage),
+		viewport: viewport.New(60, 60), // TODO: Don't hardcode this
+		client:   client,
+		spinner:  spinner,
+		Channel:  channel,
 	}
 }
 
@@ -50,11 +53,11 @@ func waitForActivity(sub chan twitch.PrivateMessage) tea.Cmd {
 }
 
 func (m ChatModel) currentChannel(channel string) bool {
-	return strings.EqualFold(m.channel, channel)
+	return strings.EqualFold(m.Channel, channel)
 }
 
 func (m ChatModel) Init() tea.Cmd {
-	m.client.Join(m.channel) // Join the channel first
+	m.client.Join(m.Channel) // Join the channel first
 	return tea.Batch(
 		m.spinner.Tick,                     // Start the spinner
 		listenForActivity(m.sub, m.client), // Start accepting messages
@@ -88,9 +91,12 @@ func (m ChatModel) View() string {
 	view := strings.Builder{}
 	if len(m.messages) > 0 {
 		// FIXME: This breaks on too many messages
+		// Need to implement a scrollable view
 		view.WriteString(strings.Join(m.messages, "\n"))
 	} else {
 		view.WriteString(fmt.Sprintf("%s No messages yet.", m.spinner.View()))
 	}
-	return view.String()
+
+	m.viewport.SetContent(view.String())
+	return m.viewport.View()
 }
