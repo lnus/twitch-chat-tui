@@ -78,13 +78,19 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m MainModel) View() string {
+	var s string
+
 	if len(m.chatModels) == 0 && !m.isTyping {
-		return "No chats yet. Press 'a' to start typing."
+		s += "No chats yet. Press 'a' to start typing."
 	}
 
 	if m.isTyping {
-		return m.textInput.View()
+		s += m.textInput.View()
 	}
 
-	return m.chatModels[m.activeChat].View()
+	if len(m.chatModels) > 0 {
+		s += m.chatModels[m.activeChat].View()
+	}
+
+	return s
 }
