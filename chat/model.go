@@ -53,11 +53,11 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m ChatModel) View() string {
-	s := "\nIn chat " + m.channel + ":\n\n"
+	view := strings.Builder{}
 	if len(m.messages) > 0 {
-		s += strings.Join(m.messages, "\n")
+		view.WriteString(strings.Join(m.messages, "\n"))
 	} else {
-		s += fmt.Sprintf("%s No messages yet.", m.spinner.View())
+		view.WriteString(fmt.Sprintf("%s No messages yet.", m.spinner.View()))
 	}
-	return s
+	return view.String()
 }

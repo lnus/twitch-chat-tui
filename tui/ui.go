@@ -23,7 +23,7 @@ func NewTextInput() textinput.Model {
 
 // Yoink from https://github.com/charmbracelet/bubbletea/blob/master/examples/tabs/main.go
 func tabBorderWithBottom(left, middle, right string) lipgloss.Border {
-	border := lipgloss.RoundedBorder()
+	border := lipgloss.NormalBorder()
 	border.BottomLeft = left
 	border.Bottom = middle
 	border.BottomRight = right
@@ -31,41 +31,25 @@ func tabBorderWithBottom(left, middle, right string) lipgloss.Border {
 }
 
 var (
-	inactiveTabBorder = tabBorderWithBottom("┴", "─", "┴")
-	activeTabBorder   = tabBorderWithBottom("┘", " ", "└")
-	docStyle          = lipgloss.NewStyle().Padding(1, 2, 1, 2)
-	highlightColor    = lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
-	inactiveTabStyle  = lipgloss.NewStyle().Border(inactiveTabBorder, true).BorderForeground(highlightColor).Padding(0, 1)
-	activeTabStyle    = inactiveTabStyle.Copy().Border(activeTabBorder, true)
-	windowStyle       = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Left).Border(lipgloss.NormalBorder()).UnsetBorderTop()
+	tabBorder        = lipgloss.NormalBorder()
+	docStyle         = lipgloss.NewStyle().Padding(1, 2, 1, 2)
+	highlightColor   = lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
+	inactiveTabStyle = lipgloss.NewStyle().Border(tabBorder, true)
+	activeTabStyle   = inactiveTabStyle.Copy().BorderForeground(highlightColor)
+	windowStyle      = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(0, 0).Align(lipgloss.Left).Border(lipgloss.NormalBorder())
 )
 
 func renderTabString(channels []string, active string) string {
 	var renderedTabs []string
 
-	for i, channel := range channels {
+	for _, channel := range channels {
 		var style lipgloss.Style
-		isFirst := i == 0
-		isLast := i == len(channels)-1
 		isActive := active == channel
 		if isActive {
 			style = activeTabStyle.Copy()
 		} else {
 			style = inactiveTabStyle.Copy()
 		}
-		border, _, _, _, _ := style.GetBorder()
-
-		if isFirst && isActive {
-			border.BottomLeft = "│"
-		} else if isFirst && !isActive {
-			border.BottomLeft = "├"
-		} else if isLast && isActive {
-			border.BottomRight = "│"
-		} else if isLast && !isActive {
-			border.BottomRight = "┤"
-		}
-
-		style = style.Border(border)
 		renderedTabs = append(renderedTabs, style.Render(channel))
 	}
 

@@ -119,15 +119,18 @@ func (m MainModel) View() string {
 		view.WriteString("\n")
 
 		// And render content within tab
-		view.WriteString(windowStyle.Width(m.width).Render(m.chatModels[m.activeChat].View()))
-	}
-
-	if len(m.chatModels) == 0 && !m.isTyping {
-		view.WriteString("No chats yet. Press 'a' to start typing.")
+		// TODO: Width & height should be more dynamic
+		view.WriteString(windowStyle.
+			Width(m.width - 4).
+			Height(m.height - 12).
+			Render(m.chatModels[m.activeChat].View()))
 	}
 
 	if m.isTyping {
-		view.WriteString("\n\n" + m.textInput.View())
+		if len(m.chatModels) > 0 {
+			view.WriteString("\n\n")
+		}
+		view.WriteString(m.textInput.View())
 	}
 
 	// Mini help display
