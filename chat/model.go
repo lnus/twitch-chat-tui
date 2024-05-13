@@ -26,6 +26,26 @@ func NewChatModel(client *twitch.Client, spinner spinner.Model, channel string) 
 	}
 }
 
+func listenForActivity(sub chan twitch.PrivateMessage, client *twitch.Client) tea.Cmd {
+	return func() tea.Msg {
+		client.OnPrivateMessage(func(message twitch.PrivateMessage) {
+			sub <- message
+		})
+
+		err := client.Connect()
+		if err != nil {
+			panic(err)
+		}
+		return nil
+	}
+}
+
+func waitForActivity(sub chan twitch.PrivateMessage) tea.Cmd {
+	return func() tea.Msg {
+		return <-sub
+	}
+}
+
 func (m ChatModel) Init() tea.Cmd {
 	m.client.Join(m.channel) // Join the channel first
 	return tea.Batch(

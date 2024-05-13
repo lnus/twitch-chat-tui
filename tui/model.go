@@ -128,12 +128,21 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	default:
-		// TODO: Update all chats, not only active
+		// FIXME: Update all chats, not only active
 		if m.channelExists(m.activeChat) {
 			updatedModel, cmd := m.chatModels[m.activeChat].Update(msg)
 			m.chatModels[m.activeChat] = updatedModel.(chat.ChatModel)
 			cmds = append(cmds, cmd)
 		}
+
+		// Iterate over all chat models and update them
+		// For some reason this consolidates the messages
+		// into one chat model? Strange.
+		// for channel, chatModel := range m.chatModels {
+		// 	updatedModel, cmd := chatModel.Update(msg)
+		// 	m.chatModels[channel] = updatedModel.(chat.ChatModel)
+		// 	cmds = append(cmds, cmd)
+		// }
 	}
 
 	return m, tea.Batch(cmds...)
@@ -166,9 +175,6 @@ func (m MainModel) View() string {
 
 	// Mini help display
 	view.WriteString("\n\n" + helpView)
-
-	// Dumb thing debug
-	view.WriteString(m.activeChat)
 
 	// TODO: Rename docStyle
 	return docStyle.Render(view.String())
