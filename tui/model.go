@@ -15,13 +15,13 @@ type MainModel struct {
 	chatModels map[string]chat.ChatModel
 	help       help.Model
 	activeChat string
+	viewport   viewport.Model
 	keys       KeyMap
 	tabs       []string
 	textInput  textinput.Model
 	width      int
 	height     int
 	isTyping   bool
-	viewport   viewport.Model
 }
 
 func NewMainModel() MainModel {
@@ -66,6 +66,10 @@ func (m MainModel) passUpdates(msg tea.Msg) []tea.Cmd {
 	return cmds
 }
 
+func (m MainModel) getMaxOffset() int {
+	return m.chatModels[m.activeChat].MessageCount - m.viewport.Height
+}
+
 func (m *MainModel) addChannel(channel string) tea.Cmd {
 	// Sanity check, just set active
 	if m.channelExists(channel) {
@@ -84,6 +88,27 @@ func (m *MainModel) addChannel(channel string) tea.Cmd {
 	return chatModel.Init()
 }
 
+func (m *MainModel) removeChannel(channel string) {
+	// Sanity check
+	if !m.channelExists(channel) {
+		return
+	}
+
+	// Remove the tab from tablist
+	index := m.channelIndex()
+	m.tabs = append(m.tabs[:index], m.tabs[index+1:]...)
+
+	// Remove the chat model
+	delete(m.chatModels, channel)
+
+	// Set active to index 0 if it exists, otherwise ""
+	if len(m.tabs) > 0 {
+		m.activeChat = m.tabs[0]
+	} else {
+		m.activeChat = ""
+	}
+}
+
 // TODO: Abstract some of this logic
 // Probably into receiver methods for MainModel
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -92,10 +117,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case twitch.PrivateMessage:
-		// TODO: Figure out a good way to handle downscroll
-		//
-		// FIXME: This is disabled
-		if false && m.chatModels[msg.Channel].MessageCount > m.viewport.Height {
+		if m.viewport.YOffset == m.getMaxOffset() {
 			// Scroll viewport down one
 			m.viewport.YOffset++
 		}
@@ -110,8 +132,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Width(m.width - 4).
 		// Height(m.height - 12).
 		// This is kind of arbitrary, but it works for now
-		m.viewport.Width = m.width - 5
-		m.viewport.Height = m.height - 13
+		m.viewport.Width = m.width - 4
+		m.viewport.Height = m.height - 12
 
 		// Re-render the viewport
 		cmds = append(cmds, viewport.Sync(m.viewport))
@@ -138,12 +160,23 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "q", "ctrl+c":
 				cmds = append(cmds, tea.Quit)
 			case "a":
+				// Clear the text input
+				m.textInput.SetValue("")
+
 				// TextInput pop up
 				m.isTyping = true
 				cmds = append(cmds, m.textInput.Focus())
 
+			case "d": // Close tab
+				// FIXME: This duplicates the first message sent
+				// IF same chat is re-opened?
+				// Bleh, works for now
+				if index != -1 {
+					m.removeChannel(m.activeChat)
+				}
+
 				// Tab switching
-			case "left", "h": // Left arrow or h
+			case "left", "h": // Tab previous
 				if index != -1 {
 					// Go left and wrap around
 					if index == 0 {
@@ -151,8 +184,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					} else {
 						m.activeChat = m.tabs[index-1]
 					}
+
+					// Reset the YOffset to message count
+					m.viewport.YOffset = m.getMaxOffset()
 				}
-			case "right", "l": // Right arrow or l
+			case "right", "l": // Tab next
 				if index != -1 {
 					// Go right and wrap around
 					if index == len(m.tabs)-1 {
@@ -160,14 +196,27 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					} else {
 						m.activeChat = m.tabs[index+1]
 					}
+
+					// Reset the YOffset to message count
+					m.viewport.YOffset = m.getMaxOffset()
 				}
 
-			case "j", "down": // Down arrow or j
-				m.viewport.YOffset++
-			case "k", "up": // Up arrow or k
+			case "j", "down": // Scroll down
+				if m.viewport.YOffset < m.getMaxOffset() {
+					m.viewport.YOffset++
+				} else {
+					m.viewport.YOffset = m.getMaxOffset()
+				}
+
+			case "k", "up": // Scroll up
 				if m.viewport.YOffset > 0 {
 					m.viewport.YOffset--
+				} else {
+					m.viewport.YOffset = 0
 				}
+
+			case "/": // Search mode (Vim-like)
+				// TODO: Implement lol
 			}
 		}
 	default:
@@ -192,7 +241,6 @@ func (m MainModel) View() string {
 		m.viewport.SetContent(m.chatModels[m.activeChat].View())
 
 		// And render content within tab
-		// TODO: Width & height should be more dynamic
 		view.WriteString(windowStyle.
 			Width(m.width - 4).
 			Height(m.height - 12).
@@ -209,6 +257,5 @@ func (m MainModel) View() string {
 	// Mini help display
 	view.WriteString("\n\n" + helpView)
 
-	// TODO: Rename docStyle
 	return docStyle.Render(view.String())
 }
