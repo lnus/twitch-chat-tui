@@ -138,6 +138,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.Width = m.width - 4
 		m.viewport.Height = m.height - 12
 
+		// Jump to bottom of the viewport
+		m.viewport.YOffset = m.getMaxOffset() // TODO: Function?
+
 		// Re-render the viewport
 		cmds = append(cmds, viewport.Sync(m.viewport))
 
@@ -217,6 +220,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.viewport.YOffset = 0
 				}
+
+			case "G": // Scroll to bottom
+				m.viewport.YOffset = m.getMaxOffset()
 
 			case "/": // Search mode (Vim-like)
 				// TODO: Implement lol
