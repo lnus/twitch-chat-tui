@@ -28,7 +28,7 @@ func NewChatModel(client *twitch.Client, spinner spinner.Model, channel string) 
 		client:   client,
 		spinner:  spinner,
 		Channel:  channel,
-		viewport: viewport.New(0, 0), // Init viewport to (0,0), see update
+		viewport: viewport.New(1, 1), // Init viewport to (0,0), see update
 	}
 
 	model.viewport.Style = lipgloss.NewStyle().
@@ -95,26 +95,57 @@ func (m ChatModel) renderViewportInfo() string {
 		bottom = "true"
 	}
 
-	return fmt.Sprintf("Total %d, Visible %d, At top %s, At bottom %s", m.viewport.TotalLineCount(), m.viewport.VisibleLineCount(), top, bottom)
+	return fmt.Sprintf("Total %d, Visible %d, At top %s, At bottom %s, Mwheeldelta %d",
+		m.viewport.TotalLineCount(), m.viewport.VisibleLineCount(), top, bottom, m.viewport.MouseWheelDelta)
+}
+
+func (m ChatModel) getMaxOffset() int {
+	return m.MessageCount - m.viewport.Height
 }
 
 func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
-	var vpCmd tea.Cmd
-	m.viewport, vpCmd = m.viewport.Update(msg)
-	cmds = append(cmds, vpCmd)
-
 	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		// FIXME: Why does this not work? Sorry?
+		var vpCmd tea.Cmd
+		m.viewport, vpCmd = m.viewport.Update(msg)
+		cmds = append(cmds, vpCmd)
+
+		switch msg.String() {
+		case "j", "down": // Scroll down
+			if m.viewport.YOffset < m.getMaxOffset() {
+				m.viewport.YOffset++
+			} else {
+				m.viewport.YOffset = m.getMaxOffset()
+			}
+
+		case "k", "up": // Scroll up
+			if m.viewport.YOffset > 0 {
+				m.viewport.YOffset--
+			} else {
+				m.viewport.YOffset = 0
+			}
+		case "G": // Scroll to bottom
+			m.viewport.YOffset = m.getMaxOffset()
+		}
+
 	case tea.WindowSizeMsg:
-		// TODO: Dynamic?
+		// FIXME: Dynamic?
+		// Or put in ui/styles.go
 		m.viewport.Width = msg.Width - 4
 		m.viewport.Height = msg.Height - 12
 
 		// Re-render the viewport
-		cmds = append(cmds, viewport.Sync(m.viewport))
+		// cmds = append(cmds, viewport.Sync(m.viewport))
 
 	case twitch.PrivateMessage:
+		if m.viewport.YOffset == m.getMaxOffset() {
+			// Scroll viewport down one
+			m.viewport.YOffset++
+		}
+
 		if m.currentChannel(msg.Channel) {
 			m.messages = append(m.messages, FormatMessage(msg))
 			m.MessageCount++

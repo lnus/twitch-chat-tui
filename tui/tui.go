@@ -127,20 +127,16 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.textInput, cmd = m.textInput.Update(msg)
 			cmds = append(cmds, cmd)
 			switch msg.String() {
-
 			case "esc":
 				m.isTyping = false
-				m.textInput.Blur()
 
 			case "enter":
 				m.isTyping = false
 				username := m.textInput.Value()
-				m.textInput.Blur()
 
 				cmd = m.addChannel(username)
 				cmds = append(cmds, cmd)
 			}
-
 		} else {
 			// Handle non-input key presses
 			switch msg.String() {
@@ -184,8 +180,10 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 			default:
-				// Pass any other keybinds to chat models
-				cmds = append(cmds, m.passUpdates(msg)...)
+				// Pass any other keybinds to focused chat model
+				updatedModel, ucmds := m.currentChatModel().Update(msg)
+				m.chatModels[m.activeChat] = updatedModel.(ChatModel)
+				cmds = append(cmds, ucmds)
 			}
 		}
 
