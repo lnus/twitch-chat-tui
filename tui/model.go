@@ -85,7 +85,7 @@ func (m *MainModel) addChannel(channel string) tea.Cmd {
 	// Add this channel name to last of tab-list
 	m.tabs = append(m.tabs, channel)
 
-	return chatModel.Init()
+	return tea.Batch(chatModel.Init(), chatModel.SetViewportSize(m.width, m.height))
 }
 
 func (m *MainModel) removeChannel(channel string) {
@@ -112,6 +112,10 @@ func (m *MainModel) removeChannel(channel string) {
 	}
 }
 
+func (m MainModel) currentChatModel() chat.ChatModel {
+	return m.chatModels[m.activeChat]
+}
+
 // TODO: Abstract some of this logic
 // Probably into receiver methods for MainModel
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -132,17 +136,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 
-		// Width(m.width - 4).
-		// Height(m.height - 12).
-		// This is kind of arbitrary, but it works for now
-		m.viewport.Width = m.width - 4
-		m.viewport.Height = m.height - 12
-
-		// Jump to bottom of the viewport
-		m.viewport.YOffset = m.getMaxOffset() // TODO: Function?
-
-		// Re-render the viewport
-		cmds = append(cmds, viewport.Sync(m.viewport))
+		cmds = append(cmds, m.passUpdates(msg)...)
 
 	case tea.KeyMsg:
 		if m.isTyping {
@@ -153,9 +147,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "esc":
 				m.isTyping = false
+				m.textInput.Blur()
 			case "enter":
 				m.isTyping = false
 				username := m.textInput.Value()
+				m.textInput.Blur()
 
 				cmd = m.addChannel(username)
 				cmds = append(cmds, cmd)
@@ -171,6 +167,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				// TextInput pop up
 				m.isTyping = true
+
 				cmds = append(cmds, m.textInput.Focus())
 
 			case "d": // Close tab
@@ -207,26 +204,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.viewport.YOffset = m.getMaxOffset()
 				}
 
-			case "j", "down": // Scroll down
-				if m.viewport.YOffset < m.getMaxOffset() {
-					m.viewport.YOffset++
-				} else {
-					m.viewport.YOffset = m.getMaxOffset()
-				}
-
-			case "k", "up": // Scroll up
-				if m.viewport.YOffset > 0 {
-					m.viewport.YOffset--
-				} else {
-					m.viewport.YOffset = 0
-				}
-
-			case "G": // Scroll to bottom
-				// For some reason GotoBottom() always goes to top? Am I disabled?
-				m.viewport.YOffset = m.getMaxOffset()
-
-			case "/": // Search mode (Vim-like)
-				// TODO: Implement lol
+			default:
+				// Pass any other keybinds to chat models
+				cmds = append(cmds, m.passUpdates(msg)...)
 			}
 		}
 	default:
@@ -246,15 +226,7 @@ func (m MainModel) View() string {
 		row := renderTabString(m.tabs, m.activeChat)
 		view.WriteString(row)
 		view.WriteString("\n")
-
-		// Render the view in the viewport
-		m.viewport.SetContent(m.chatModels[m.activeChat].View())
-
-		// And render content within tab
-		view.WriteString(windowStyle.
-			Width(m.width - 4).
-			Height(m.height - 12).
-			Render(m.viewport.View()))
+		view.WriteString(m.chatModels[m.activeChat].View())
 	}
 
 	if m.isTyping {

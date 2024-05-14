@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/gempir/go-twitch-irc/v4"
 )
 
@@ -13,6 +15,7 @@ type ChatModel struct {
 	sub          chan twitch.PrivateMessage
 	client       *twitch.Client
 	Channel      string
+	viewport     viewport.Model
 	messages     []string
 	spinner      spinner.Model
 	MessageCount int
@@ -21,11 +24,16 @@ type ChatModel struct {
 func NewChatModel(client *twitch.Client, spinner spinner.Model, channel string) ChatModel {
 	sub := make(chan twitch.PrivateMessage)
 	model := ChatModel{
-		sub:     sub,
-		client:  client,
-		spinner: spinner,
-		Channel: channel,
+		sub:      sub,
+		client:   client,
+		spinner:  spinner,
+		Channel:  channel,
+		viewport: viewport.New(0, 0), // Init viewport to (0,0), see update
 	}
+
+	model.viewport.Style = lipgloss.NewStyle().
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("62"))
 
 	// Start listening for messages
 	go listenForMessages(sub, client)
@@ -55,6 +63,13 @@ func (m ChatModel) currentChannel(channel string) bool {
 	return strings.EqualFold(m.Channel, channel)
 }
 
+// Force re-render message, makes viewport size good
+func (m ChatModel) SetViewportSize(width int, height int) tea.Cmd {
+	return func() tea.Msg {
+		return tea.WindowSizeMsg{Width: width, Height: height}
+	}
+}
+
 func (m ChatModel) Destroy() {
 	m.client.Disconnect()
 }
@@ -67,17 +82,46 @@ func (m ChatModel) Init() tea.Cmd {
 	)
 }
 
+// TODO: Update this
+func (m ChatModel) renderViewportInfo() string {
+	top := "false"
+	bottom := "false"
+
+	if m.viewport.AtTop() {
+		top = "true"
+	}
+
+	if m.viewport.AtBottom() {
+		bottom = "true"
+	}
+
+	return fmt.Sprintf("Total %d, Visible %d, At top %s, At bottom %s", m.viewport.TotalLineCount(), m.viewport.VisibleLineCount(), top, bottom)
+}
+
 func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		// TODO: Dynamic?
+		m.viewport.Width = msg.Width - 4
+		m.viewport.Height = msg.Height - 12
+
+		// Re-render the viewport
+		cmds = append(cmds, viewport.Sync(m.viewport))
+
 	case tea.KeyMsg:
-		return m, tea.Quit
+		// FIXME: WHY IS THIS NOT WORKING?
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		cmds = append(cmds, cmd)
+
 	case twitch.PrivateMessage:
 		if m.currentChannel(msg.Channel) {
 			m.messages = append(m.messages, FormatMessage(msg))
 			m.MessageCount++
 		}
+
 		cmds = append(cmds, waitForActivity(m.sub))
 	default:
 		var cmd tea.Cmd
@@ -89,12 +133,11 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m ChatModel) View() string {
-	view := strings.Builder{}
 	if len(m.messages) > 0 {
-		view.WriteString(strings.Join(m.messages, "\n"))
+		m.viewport.SetContent(strings.Join(m.messages, "\n"))
 	} else {
-		view.WriteString(fmt.Sprintf("%s No messages yet.", m.spinner.View()))
+		m.viewport.SetContent(fmt.Sprintf("%s No messages yet.", m.spinner.View()))
 	}
 
-	return view.String()
+	return (m.viewport.View() + "\n" + m.renderViewportInfo())
 }
