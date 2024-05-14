@@ -101,6 +101,10 @@ func (m ChatModel) renderViewportInfo() string {
 func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
+	var vpCmd tea.Cmd
+	m.viewport, vpCmd = m.viewport.Update(msg)
+	cmds = append(cmds, vpCmd)
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		// TODO: Dynamic?
@@ -110,12 +114,6 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Re-render the viewport
 		cmds = append(cmds, viewport.Sync(m.viewport))
 
-	case tea.KeyMsg:
-		// FIXME: WHY IS THIS NOT WORKING?
-		var cmd tea.Cmd
-		m.viewport, cmd = m.viewport.Update(msg)
-		cmds = append(cmds, cmd)
-
 	case twitch.PrivateMessage:
 		if m.currentChannel(msg.Channel) {
 			m.messages = append(m.messages, FormatMessage(msg))
@@ -123,10 +121,13 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		cmds = append(cmds, waitForActivity(m.sub))
+
 	default:
-		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		cmds = append(cmds, cmd)
+		if len(m.messages) < 1 {
+			var cmd tea.Cmd
+			m.spinner, cmd = m.spinner.Update(msg)
+			cmds = append(cmds, cmd)
+		}
 	}
 
 	return m, tea.Batch(cmds...)

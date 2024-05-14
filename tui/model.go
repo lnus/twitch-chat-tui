@@ -6,7 +6,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gempir/go-twitch-irc/v4"
 )
@@ -15,7 +14,6 @@ type MainModel struct {
 	chatModels map[string]chat.ChatModel
 	help       help.Model
 	activeChat string
-	viewport   viewport.Model
 	keys       KeyMap
 	tabs       []string
 	textInput  textinput.Model
@@ -33,12 +31,10 @@ func NewMainModel() MainModel {
 		activeChat: "",                              // Active chat, default to none
 		textInput:  NewTextInput(),                  // Text input model
 		isTyping:   false,                           // Typing mode
-		viewport:   viewport.New(0, 0),              // Init viewport to (0,0), see update
 	}
 }
 
 func (m MainModel) Init() tea.Cmd {
-	m.viewport.HighPerformanceRendering = true
 	return textinput.Blink // Cursor blink start
 }
 
@@ -64,10 +60,6 @@ func (m MainModel) passUpdates(msg tea.Msg) []tea.Cmd {
 		cmds = append(cmds, cmd)
 	}
 	return cmds
-}
-
-func (m MainModel) getMaxOffset() int {
-	return m.chatModels[m.activeChat].MessageCount - m.viewport.Height
 }
 
 func (m *MainModel) addChannel(channel string) tea.Cmd {
@@ -123,15 +115,6 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	index := m.channelIndex()
 
 	switch msg := msg.(type) {
-	case twitch.PrivateMessage:
-		if m.viewport.YOffset == m.getMaxOffset() {
-			// Scroll viewport down one
-			m.viewport.YOffset++
-		}
-
-		// Send message to chats
-		cmds = append(cmds, m.passUpdates(msg)...)
-
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -145,9 +128,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.textInput, cmd = m.textInput.Update(msg)
 			cmds = append(cmds, cmd)
 			switch msg.String() {
+
 			case "esc":
 				m.isTyping = false
 				m.textInput.Blur()
+
 			case "enter":
 				m.isTyping = false
 				username := m.textInput.Value()
@@ -156,11 +141,14 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmd = m.addChannel(username)
 				cmds = append(cmds, cmd)
 			}
+
 		} else {
 			// Handle non-input key presses
 			switch msg.String() {
+
 			case "q", "ctrl+c":
 				cmds = append(cmds, tea.Quit)
+
 			case "a":
 				// Clear the text input
 				m.textInput.SetValue("")
@@ -170,10 +158,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				cmds = append(cmds, m.textInput.Focus())
 
-			case "d": // Close tab
-				// FIXME: This duplicates the first message sent
-				// IF same chat is re-opened?
-				// Bleh, works for now
+			case "x": // Close tab
 				if index != -1 {
 					m.removeChannel(m.activeChat)
 				}
@@ -187,10 +172,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					} else {
 						m.activeChat = m.tabs[index-1]
 					}
-
-					// Reset the YOffset to message count
-					m.viewport.YOffset = m.getMaxOffset()
 				}
+
 			case "right", "l": // Tab next
 				if index != -1 {
 					// Go right and wrap around
@@ -199,9 +182,6 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					} else {
 						m.activeChat = m.tabs[index+1]
 					}
-
-					// Reset the YOffset to message count
-					m.viewport.YOffset = m.getMaxOffset()
 				}
 
 			default:
@@ -209,6 +189,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, m.passUpdates(msg)...)
 			}
 		}
+
 	default:
 		// Pass other updates to all chat models
 		cmds = append(cmds, m.passUpdates(msg)...)
@@ -219,6 +200,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m MainModel) View() string {
 	view := strings.Builder{}
+
 	helpView := m.help.ShortHelpView(m.keys.ShortHelp())
 
 	if len(m.chatModels) > 0 {
