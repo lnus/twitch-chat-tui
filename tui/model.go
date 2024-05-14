@@ -222,6 +222,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 			case "G": // Scroll to bottom
+				// For some reason GotoBottom() always goes to top? Am I disabled?
 				m.viewport.YOffset = m.getMaxOffset()
 
 			case "/": // Search mode (Vim-like)
