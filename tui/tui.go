@@ -2,7 +2,6 @@ package tui
 
 import (
 	"strings"
-	"ttui/chat"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -11,7 +10,7 @@ import (
 )
 
 type MainModel struct {
-	chatModels map[string]chat.ChatModel
+	chatModels map[string]ChatModel
 	help       help.Model
 	activeChat string
 	keys       KeyMap
@@ -24,13 +23,13 @@ type MainModel struct {
 
 func NewMainModel() MainModel {
 	return MainModel{
-		keys:       Keys,                            // Keybindings
-		help:       help.New(),                      // Help menu model
-		chatModels: make(map[string]chat.ChatModel), // Chat models
-		tabs:       make([]string, 0),               // Tab representation of chat models
-		activeChat: "",                              // Active chat, default to none
-		textInput:  NewTextInput(),                  // Text input model
-		isTyping:   false,                           // Typing mode
+		keys:       Keys,                       // Keybindings
+		help:       help.New(),                 // Help menu model
+		chatModels: make(map[string]ChatModel), // Chat models
+		tabs:       make([]string, 0),          // Tab representation of chat models
+		activeChat: "",                         // Active chat, default to none
+		textInput:  NewTextInput(),             // Text input model
+		isTyping:   false,                      // Typing mode
 	}
 }
 
@@ -56,7 +55,7 @@ func (m MainModel) passUpdates(msg tea.Msg) []tea.Cmd {
 	var cmds []tea.Cmd
 	for _, chatModel := range m.chatModels {
 		updatedModel, cmd := chatModel.Update(msg)
-		m.chatModels[chatModel.Channel] = updatedModel.(chat.ChatModel)
+		m.chatModels[chatModel.Channel] = updatedModel.(ChatModel)
 		cmds = append(cmds, cmd)
 	}
 	return cmds
@@ -70,7 +69,7 @@ func (m *MainModel) addChannel(channel string) tea.Cmd {
 	}
 
 	// Create a new ChatModel with the username
-	chatModel := chat.NewChatModel(twitch.NewAnonymousClient(), NewStyledSpinner(), channel)
+	chatModel := NewChatModel(twitch.NewAnonymousClient(), NewStyledSpinner(), channel)
 	m.chatModels[channel] = chatModel
 	m.activeChat = channel
 
@@ -104,7 +103,7 @@ func (m *MainModel) removeChannel(channel string) {
 	}
 }
 
-func (m MainModel) currentChatModel() chat.ChatModel {
+func (m MainModel) currentChatModel() ChatModel {
 	return m.chatModels[m.activeChat]
 }
 

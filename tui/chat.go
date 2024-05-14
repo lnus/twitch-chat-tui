@@ -1,4 +1,4 @@
-package chat
+package tui
 
 import (
 	"fmt"
