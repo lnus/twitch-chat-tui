@@ -38,6 +38,9 @@ func listenForActivity(sub chan twitch.PrivateMessage, client *twitch.Client) te
 
 		err := client.Connect()
 		if err != nil {
+			if err == twitch.ErrClientDisconnected {
+				return nil // This is a graceful exit
+			}
 			panic(err)
 		}
 		return nil
@@ -52,6 +55,11 @@ func waitForActivity(sub chan twitch.PrivateMessage) tea.Cmd {
 
 func (m ChatModel) currentChannel(channel string) bool {
 	return strings.EqualFold(m.Channel, channel)
+}
+
+// A little bit jank
+func (m ChatModel) Destroy() {
+	m.client.Disconnect()
 }
 
 func (m ChatModel) Init() tea.Cmd {

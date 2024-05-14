@@ -98,6 +98,9 @@ func (m *MainModel) removeChannel(channel string) {
 	index := m.channelIndex()
 	m.tabs = append(m.tabs[:index], m.tabs[index+1:]...)
 
+	// Disconnect the chat model from chat
+	m.chatModels[channel].Destroy()
+
 	// Remove the chat model
 	delete(m.chatModels, channel)
 
