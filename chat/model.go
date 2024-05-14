@@ -10,11 +10,12 @@ import (
 )
 
 type ChatModel struct {
-	sub      chan twitch.PrivateMessage
-	client   *twitch.Client
-	Channel  string
-	messages []string
-	spinner  spinner.Model
+	sub          chan twitch.PrivateMessage
+	client       *twitch.Client
+	Channel      string
+	messages     []string
+	spinner      spinner.Model
+	MessageCount int
 }
 
 func NewChatModel(client *twitch.Client, spinner spinner.Model, channel string) ChatModel {
@@ -73,6 +74,7 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Having race conditions here
 		if m.currentChannel(msg.Channel) {
 			m.messages = append(m.messages, FormatMessage(msg))
+			m.MessageCount++
 		}
 		cmds = append(cmds, waitForActivity(m.sub))
 	default:
@@ -90,11 +92,7 @@ func (m ChatModel) View() string {
 		// Only display the latest 30 messages, but dont remove them from the slice
 		// This will allow us to scroll up and down ? Maybe
 		// This is a hacky fix
-		if len(m.messages) > 30 {
-			view.WriteString(strings.Join(m.messages[len(m.messages)-30:], "\n"))
-		} else {
-			view.WriteString(strings.Join(m.messages, "\n"))
-		}
+		view.WriteString(strings.Join(m.messages, "\n"))
 	} else {
 		view.WriteString(fmt.Sprintf("%s No messages yet.", m.spinner.View()))
 	}

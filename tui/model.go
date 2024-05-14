@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gempir/go-twitch-irc/v4"
 )
@@ -20,6 +21,7 @@ type MainModel struct {
 	width      int
 	height     int
 	isTyping   bool
+	viewport   viewport.Model
 }
 
 func NewMainModel() MainModel {
@@ -31,10 +33,12 @@ func NewMainModel() MainModel {
 		activeChat: "",                              // Active chat, default to none
 		textInput:  NewTextInput(),                  // Text input model
 		isTyping:   false,                           // Typing mode
+		viewport:   viewport.New(0, 0),              // Init viewport to (0,0), see update
 	}
 }
 
 func (m MainModel) Init() tea.Cmd {
+	m.viewport.HighPerformanceRendering = true
 	return textinput.Blink // Cursor blink start
 }
 
@@ -87,12 +91,30 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	index := m.channelIndex()
 
 	switch msg := msg.(type) {
+	case twitch.PrivateMessage:
+		// TODO: Figure out a good way to handle downscroll
+		//
+		// FIXME: This is disabled
+		if false && m.chatModels[msg.Channel].MessageCount > m.viewport.Height {
+			// Scroll viewport down one
+			m.viewport.YOffset++
+		}
+
+		// Send message to chats
+		cmds = append(cmds, m.passUpdates(msg)...)
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 
-		// Update all chat models
-		cmds = append(cmds, m.passUpdates(msg)...)
+		// Width(m.width - 4).
+		// Height(m.height - 12).
+		// This is kind of arbitrary, but it works for now
+		m.viewport.Width = m.width - 5
+		m.viewport.Height = m.height - 13
+
+		// Re-render the viewport
+		cmds = append(cmds, viewport.Sync(m.viewport))
 
 	case tea.KeyMsg:
 		if m.isTyping {
@@ -139,26 +161,18 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.activeChat = m.tabs[index+1]
 					}
 				}
+
+			case "j", "down": // Down arrow or j
+				m.viewport.YOffset++
+			case "k", "up": // Up arrow or k
+				if m.viewport.YOffset > 0 {
+					m.viewport.YOffset--
+				}
 			}
 		}
 	default:
-		// FIXME: Update all chats, not only active
-		// if m.channelExists(m.activeChat) {
-		// 	updatedModel, cmd := m.chatModels[m.activeChat].Update(msg)
-		// 	m.chatModels[m.activeChat] = updatedModel.(chat.ChatModel)
-		// 	cmds = append(cmds, cmd)
-		// }
-		// pass updates to all chat models
+		// Pass other updates to all chat models
 		cmds = append(cmds, m.passUpdates(msg)...)
-
-		// Iterate over all chat models and update them
-		// For some reason this consolidates the messages
-		// into one chat model? Strange.
-		// for channel, chatModel := range m.chatModels {
-		// 	updatedModel, cmd := chatModel.Update(msg)
-		// 	m.chatModels[channel] = updatedModel.(chat.ChatModel)
-		// 	cmds = append(cmds, cmd)
-		// }
 	}
 
 	return m, tea.Batch(cmds...)
@@ -174,12 +188,15 @@ func (m MainModel) View() string {
 		view.WriteString(row)
 		view.WriteString("\n")
 
+		// Render the view in the viewport
+		m.viewport.SetContent(m.chatModels[m.activeChat].View())
+
 		// And render content within tab
 		// TODO: Width & height should be more dynamic
 		view.WriteString(windowStyle.
 			Width(m.width - 4).
 			Height(m.height - 12).
-			Render(m.chatModels[m.activeChat].View()))
+			Render(m.viewport.View()))
 	}
 
 	if m.isTyping {
